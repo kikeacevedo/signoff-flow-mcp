@@ -34,6 +34,7 @@ Then restart Claude Desktop.
 
 | Tool | Description |
 |------|-------------|
+| `signoff_set_project` | **Use first!** Select project directory to work with |
 | `signoff_status` | Check governance and initiative status |
 | `signoff_setup_governance` | Configure leads and Jira project |
 | `signoff_new_initiative` | Create a new initiative |
@@ -42,25 +43,50 @@ Then restart Claude Desktop.
 
 ## Usage in Claude Desktop
 
-1. **Check status:**
-   ```
-   "Check the signoff flow status"
-   ```
+### Step 1: Select your project (REQUIRED)
 
-2. **Set up governance:**
-   ```
-   "Set up signoff governance with BA lead 'user1', Design lead 'user2', Dev lead 'user3', and Jira project 'PROJ'"
-   ```
+```
+"Selecciona el proyecto /Users/david/proyectos/mi-app para signoff"
+```
 
-3. **Create initiative:**
-   ```
-   "Create a new initiative FEAT-100 titled 'New checkout flow'"
-   ```
+or in English:
 
-4. **Advance to next step:**
-   ```
-   "Advance initiative FEAT-100"
-   ```
+```
+"Set the signoff project to /Users/david/projects/my-app"
+```
+
+### Step 2: Check status / Setup governance
+
+```
+"Show me the signoff status"
+
+"Set up governance with BA lead 'user1', Design lead 'user2', Dev lead 'user3', Jira project 'PROJ'"
+```
+
+### Step 3: Create and advance initiatives
+
+```
+"Create a new initiative FEAT-100 titled 'New checkout flow'"
+
+"Advance initiative FEAT-100"
+```
+
+## Working with Multiple Projects
+
+The PM can switch between projects at any time:
+
+```
+"Switch to project /Users/david/projects/project-a"
+... work on project A ...
+
+"Switch to project /Users/david/projects/project-b"
+... work on project B ...
+```
+
+Each project maintains its own:
+- Governance configuration
+- Initiatives
+- State files
 
 ## Workflow
 

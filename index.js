@@ -19,10 +19,13 @@ const ARTIFACT_GROUPS = {
   readiness: ["ba", "design", "dev"],
 };
 
+// Session state - stores the currently selected project
+let currentProject = null;
+
 const server = new Server(
   {
     name: "signoff-flow-mcp",
-    version: "1.0.0",
+    version: "1.1.0",
   },
   {
     capabilities: {
@@ -33,11 +36,22 @@ const server = new Server(
 
 // Helper functions
 function getProjectRoot() {
+  // Priority: 1) Session-selected project, 2) Environment variable, 3) Git detection
+  if (currentProject) {
+    return currentProject;
+  }
+  if (process.env.PROJECT_ROOT) {
+    return process.env.PROJECT_ROOT;
+  }
   try {
     return execSync("git rev-parse --show-toplevel", { encoding: "utf-8" }).trim();
   } catch {
-    return process.cwd();
+    return null;
   }
+}
+
+function isProjectSelected() {
+  return currentProject !== null || process.env.PROJECT_ROOT !== undefined;
 }
 
 function getGovernancePath() {
@@ -245,8 +259,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
+        name: "signoff_set_project",
+        description: "Select the project directory to work with. MUST be called first before using other signoff tools. The path should be an absolute path to a git repository.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            project_path: {
+              type: "string",
+              description: "Absolute path to the project directory (e.g., '/Users/david/projects/my-app')",
+            },
+          },
+          required: ["project_path"],
+        },
+      },
+      {
         name: "signoff_status",
-        description: "Check the status of governance and initiatives. Use this first to understand the current state.",
+        description: "Check the status of governance and initiatives. Shows current project, governance config, and initiative progress.",
         inputSchema: {
           type: "object",
           properties: {
@@ -349,9 +377,63 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     switch (name) {
-      case "signoff_status": {
+      case "signoff_set_project": {
+        const projectPath = args.project_path;
+        
+        // Validate path exists
+        if (!existsSync(projectPath)) {
+          return {
+            content: [{
+              type: "text",
+              text: `❌ Directory not found: ${projectPath}\n\nPlease provide a valid absolute path to an existing directory.`,
+            }],
+            isError: true,
+          };
+        }
+        
+        // Check if it's a git repo
+        const isGitRepo = existsSync(join(projectPath, ".git"));
+        
+        // Set the current project
+        currentProject = projectPath;
+        
+        let result = `✅ Project selected!\n\n`;
+        result += `**Path:** ${projectPath}\n`;
+        result += `**Git repo:** ${isGitRepo ? "Yes" : "No (warning: PR creation may not work)"}\n\n`;
+        
+        // Check if governance exists
         const hasGovernance = governanceExists();
+        result += `**Governance:** ${hasGovernance ? "✅ Configured" : "❌ Not configured"}\n\n`;
+        
+        if (hasGovernance) {
+          result += `You can now use signoff_status, signoff_new_initiative, and signoff_advance.\n`;
+        } else {
+          result += `Next step: Run signoff_setup_governance to configure leads and Jira project.\n`;
+        }
+        
+        return { content: [{ type: "text", text: result }] };
+      }
+
+      case "signoff_status": {
+        const projectRoot = getProjectRoot();
         let result = `## Signoff Flow Status\n\n`;
+        
+        // Show current project
+        if (currentProject) {
+          result += `**Current Project:** ${currentProject}\n`;
+        } else if (process.env.PROJECT_ROOT) {
+          result += `**Current Project:** ${process.env.PROJECT_ROOT} (from env)\n`;
+        } else {
+          result += `**Current Project:** ⚠️ Not selected (run signoff_set_project first)\n`;
+        }
+        result += `\n`;
+        
+        if (!projectRoot) {
+          result += `❌ No project selected. Use signoff_set_project to select a project directory first.\n`;
+          return { content: [{ type: "text", text: result }] };
+        }
+        
+        const hasGovernance = governanceExists();
         result += `**Governance:** ${hasGovernance ? "✅ Configured" : "❌ Not configured (run signoff_setup_governance first)"}\n\n`;
         
         if (hasGovernance) {
@@ -378,8 +460,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "signoff_setup_governance": {
+        const projectRoot = getProjectRoot();
+        if (!projectRoot) {
+          return {
+            content: [{
+              type: "text",
+              text: "❌ No project selected. Run signoff_set_project first to select a project directory.",
+            }],
+            isError: true,
+          };
+        }
+        
         const govPath = getGovernancePath();
-        mkdirSync(join(getProjectRoot(), "_bmad-output", "governance"), { recursive: true });
+        mkdirSync(join(projectRoot, "_bmad-output", "governance"), { recursive: true });
         
         const content = `version: 1
 
@@ -434,6 +527,16 @@ signoff_rules:
       }
 
       case "signoff_new_initiative": {
+        if (!getProjectRoot()) {
+          return {
+            content: [{
+              type: "text",
+              text: "❌ No project selected. Run signoff_set_project first to select a project directory.",
+            }],
+            isError: true,
+          };
+        }
+        
         if (!governanceExists()) {
           return {
             content: [{
