@@ -1,0 +1,26 @@
+{
+  "name": "signoff-flow-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for PR-centric signoff workflow with Jira visibility",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "signoff-flow-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "signoff",
+    "jira",
+    "github",
+    "workflow"
+  ],
+  "author": "HALO",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
